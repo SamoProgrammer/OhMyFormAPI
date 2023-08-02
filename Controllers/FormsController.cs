@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FormGeneratorAPI.Database;
+using FormGeneratorAPI.DTOs.Form;
 
 namespace FormGeneratorAPI.Controllers
 {
@@ -48,9 +49,18 @@ namespace FormGeneratorAPI.Controllers
 
         // POST: api/Form
         [HttpPost]
-        public async Task<ActionResult<Form>> PostForm(Form form)
+        public async Task<ActionResult<Form>> PostForm(AddFormModel form)
         {
-            _context.Forms.Add(form);
+            if (!await _context.Users.AnyAsync(x=>x.Id==form.AuthorId))
+            {
+                return BadRequest();
+            }
+            await _context.Forms.AddAsync(new Form()
+            {
+                Author = await _context.Users.FindAsync(form.AuthorId),
+                EndTime = form.EndTime,
+                Title = form.Title
+            });
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetForm), new { id = form.Id }, form);
