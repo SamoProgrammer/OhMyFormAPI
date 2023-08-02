@@ -47,7 +47,7 @@ namespace FormGeneratorAPI.Controllers
         }
 
         // POST: api/FormElement
-        [HttpPost]
+        [HttpPost("/UpdateFormElement")]
         public async Task<ActionResult<FormElement>> PostFormElement(FormElement formElement)
         {
             _context.FormElements.Add(formElement);
@@ -100,6 +100,20 @@ namespace FormGeneratorAPI.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
+        }
+        [HttpPost("/UpdateFormElements")]
+        public async Task<IActionResult> UpdateFormElement(int formId, List<FormElement> formElements)
+        {
+            if (!await _context.Forms.AnyAsync(x => x.Id == formId))
+            {
+                return BadRequest();
+            }
+
+            var formFormElements = _context.FormElements
+                .Include(x => x.Form)
+                .Where(x => x.Form.Id == formId).ToList();
+            _context.RemoveRange(formElements);
+            return Ok();
         }
 
         private bool FormElementExists(int id)
