@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FormGeneratorAPI.Database;
+using FormGeneratorAPI.DTOs.FormElement;
 
 namespace FormGeneratorAPI.Controllers
 {
@@ -102,17 +103,31 @@ namespace FormGeneratorAPI.Controllers
             return NoContent();
         }
         [HttpPost("/UpdateFormElements")]
-        public async Task<IActionResult> UpdateFormElement(int formId, List<FormElement> formElements)
+        public async Task<IActionResult> UpdateFormElement(int formId, List<UpdateFormElementModel> formElementsModels)
         {
             if (!await _context.Forms.AnyAsync(x => x.Id == formId))
             {
                 return BadRequest();
             }
 
+            var form = await _context.Forms.FindAsync(formId);
             var formFormElements = _context.FormElements
                 .Include(x => x.Form)
                 .Where(x => x.Form.Id == formId).ToList();
-            _context.RemoveRange(formElements);
+            List<FormElement> newFormElements = new List<FormElement>();
+            foreach (var element in formElementsModels)
+            {
+                newFormElements.Add(new FormElement()
+                {
+                    Form = form,
+                    Label = element.Label,
+                    Options = element.Options,
+                    Type = element.Type
+                });
+            }
+            _context.RemoveRange(formFormElements);
+            await _context.FormElements.AddRangeAsync(newFormElements);
+            await _context.SaveChangesAsync();
             return Ok();
         }
 
