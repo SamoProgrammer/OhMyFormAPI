@@ -24,40 +24,52 @@ namespace FormGeneratorAPI.Controllers
 
         // GET: api/FormElement
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<FormElement>>> GetFormElements()
+        public async Task<ActionResult<IEnumerable<FormElementViewModel>>> GetFormElements()
         {
-            return await _context.FormElements
+            List<FormElementViewModel> formElements = new List<FormElementViewModel>();
+            foreach (var formElement in await _context.FormElements
                 .Include(fe => fe.Form) // Include the related Form
-                .ToListAsync();
+                .ToListAsync())
+            {
+                formElements.Add(new FormElementViewModel()
+                {
+                    Id = formElement.Id,
+                    FormId = formElement.Form.Id,
+                    Label = formElement.Label,
+                    Options = formElement.Options,
+                    Type = formElement.Type
+                });
+            }
+            return formElements;
         }
 
         // GET: api/FormElement/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<FormElement>> GetFormElement(int id)
+        public async Task<ActionResult<IEnumerable<FormElementViewModel>>> GetFormElementByFormId(int id)
         {
-            var formElement = await _context.FormElements
+            var formElements = new List<FormElementViewModel>();
+            foreach (var formElement in await _context.FormElements
                 .Include(fe => fe.Form) // Include the related Form
-                .FirstOrDefaultAsync(fe => fe.Id == id);
-
-            if (formElement == null)
+                .Where(fe => fe.Form.Id == id).ToListAsync())
+            {
+                formElements.Add(new FormElementViewModel()
+                {
+                    Id = formElement.Id,
+                    FormId = formElement.Form.Id,
+                    Label = formElement.Label,
+                    Options = formElement.Options,
+                    Type = formElement.Type
+                });
+            }
+            if (formElements == null)
             {
                 return NotFound();
             }
 
-            return formElement;
+            return formElements;
         }
 
-        // POST: api/FormElement
-        [HttpPost("/UpdateFormElement")]
-        public async Task<ActionResult<FormElement>> PostFormElement(FormElement formElement)
-        {
-            _context.FormElements.Add(formElement);
-            await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetFormElement), new { id = formElement.Id }, formElement);
-        }
-
-        // PUT: api/FormElement/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutFormElement(int id, FormElement formElement)
         {
@@ -102,7 +114,7 @@ namespace FormGeneratorAPI.Controllers
 
             return NoContent();
         }
-        [HttpPost("/UpdateFormElements")]
+        [HttpPost("UpdateFormElements")]
         public async Task<IActionResult> UpdateFormElement(int formId, List<UpdateFormElementModel> formElementsModels)
         {
             if (!await _context.Forms.AnyAsync(x => x.Id == formId))
@@ -114,6 +126,7 @@ namespace FormGeneratorAPI.Controllers
             var formFormElements = _context.FormElements
                 .Include(x => x.Form)
                 .Where(x => x.Form.Id == formId).ToList();
+            _context.RemoveRange(formFormElements);
             List<FormElement> newFormElements = new List<FormElement>();
             foreach (var element in formElementsModels)
             {
@@ -125,7 +138,6 @@ namespace FormGeneratorAPI.Controllers
                     Type = element.Type
                 });
             }
-            _context.RemoveRange(formFormElements);
             await _context.FormElements.AddRangeAsync(newFormElements);
             await _context.SaveChangesAsync();
             return Ok();
