@@ -24,16 +24,28 @@ namespace FormGeneratorAPI.Controllers
 
         // GET: api/Form
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Form>>> GetForms()
+        public async Task<ActionResult<IEnumerable<FormViewModel>>> GetForms()
         {
-            return await _context.Forms
+            var forms = await _context.Forms
                 .Include(f => f.Author) // Include the related User (Author)
                 .ToListAsync();
+            List<FormViewModel> newForms = new List<FormViewModel>();
+            foreach (var form in forms)
+            {
+                newForms.Add(new FormViewModel()
+                {
+                    Id = form.Id,
+                    AuthorId = form.Author.Id,
+                    EndTime = form.EndTime,
+                    Title = form.Title
+                });
+            }
+            return newForms;
         }
 
         // GET: api/Form/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Form>> GetForm(int id)
+        public async Task<ActionResult<FormViewModel>> GetForm(int id)
         {
             var form = await _context.Forms
                 .Include(f => f.Author) // Include the related User (Author)
@@ -44,14 +56,20 @@ namespace FormGeneratorAPI.Controllers
                 return NotFound();
             }
 
-            return form;
+            return new FormViewModel()
+            {
+                Id = form.Id,
+                AuthorId = form.Author.Id,
+                EndTime = form.EndTime,
+                Title = form.Title
+            };
         }
 
         // POST: api/Form
         [HttpPost]
         public async Task<ActionResult<Form>> PostForm(AddFormModel form)
         {
-            if (!await _context.Users.AnyAsync(x=>x.Id==form.AuthorId))
+            if (!await _context.Users.AnyAsync(x => x.Id == form.AuthorId))
             {
                 return BadRequest();
             }
@@ -59,7 +77,7 @@ namespace FormGeneratorAPI.Controllers
             {
                 Author = await _context.Users.FindAsync(form.AuthorId),
                 EndTime = form.EndTime,
-                Title = form.Title
+                Title = form.Title,
             });
             await _context.SaveChangesAsync();
 
