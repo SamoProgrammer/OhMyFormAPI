@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FormGeneratorAPI.Database;
+using FormGeneratorAPI.DTOs.FormElement;
 
 namespace FormGeneratorAPI.Controllers
 {
@@ -23,17 +24,30 @@ namespace FormGeneratorAPI.Controllers
 
         // GET: api/FormElementValue
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<FormElementValue>>> GetFormElementValues()
+        public async Task<ActionResult<IEnumerable<FormElementValueViewModel>>> GetFormElementValues()
         {
-            return await _context.Answers
+            var formElementsValues = await _context.Answers
                 .Include(fe => fe.Element) // Include the related FormElement
                 .Include(fe => fe.AnsweredBy) // Include the related User (Answered By)
                 .ToListAsync();
+            List<FormElementValueViewModel> newFormElementValues = new();
+            foreach (var formElementValue in formElementsValues)
+            {
+                newFormElementValues.Add(new FormElementValueViewModel()
+                {
+                    Id = formElementValue.Id,
+                    AnsweredAt = formElementValue.AnsweredAt,
+                    AnsweredById = formElementValue.AnsweredBy.Id,
+                    ElementId = formElementValue.Element.Id,
+                    Value = formElementValue.Value
+                });
+            }
+            return newFormElementValues;
         }
 
         // GET: api/FormElementValue/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<FormElementValue>> GetFormElementValue(int id)
+        public async Task<ActionResult<FormElementValueViewModel>> GetFormElementValue(int id)
         {
             var formElementValue = await _context.Answers
                 .Include(fe => fe.Element) // Include the related FormElement
@@ -45,17 +59,35 @@ namespace FormGeneratorAPI.Controllers
                 return NotFound();
             }
 
-            return formElementValue;
+            return new FormElementValueViewModel()
+            {
+                Id = formElementValue.Id,
+                AnsweredAt = formElementValue.AnsweredAt,
+                AnsweredById = formElementValue.AnsweredBy.Id,
+                ElementId = formElementValue.Element.Id,
+                Value = formElementValue.Value
+            };
         }
 
         // POST: api/FormElementValue
         [HttpPost]
-        public async Task<ActionResult<FormElementValue>> PostFormElementValue(FormElementValue formElementValue)
+        public async Task<ActionResult<FormElementValue>> PostFormElementsValue(List<UpdateFormElementValueModel> formElementsValues)
         {
-            _context.Answers.Add(formElementValue);
+            List<FormElementValue> newFormElementsValues = new List<FormElementValue>();
+            foreach (var formElementValue in formElementsValues)
+            {
+                newFormElementsValues.Add(new FormElementValue()
+                {
+                    AnsweredBy = await _context.Users.FindAsync(formElementValue.AnsweredById),
+                    Element = await _context.FormElements.FindAsync(formElementValue.ElementId),
+                    Value = formElementValue.Value,
+                    AnsweredAt = DateTime.Now
+                });
+            }
+            await _context.Answers.AddRangeAsync(newFormElementsValues);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetFormElementValue), new { id = formElementValue.Id }, formElementValue);
+            return Ok();
         }
 
         // PUT: api/FormElementValue/5
