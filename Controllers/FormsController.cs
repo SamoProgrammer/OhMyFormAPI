@@ -8,6 +8,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using FormGeneratorAPI.Database;
 using FormGeneratorAPI.DTOs.Form;
+using System.Text;
+using Newtonsoft.Json;
+using CsvHelper;
+using System.Globalization;
 
 namespace FormGeneratorAPI.Controllers
 {
@@ -130,6 +134,34 @@ namespace FormGeneratorAPI.Controllers
             return NoContent();
         }
 
+        [HttpPost("ConvertFormDataToCsv")]
+        public async Task<IActionResult> ConvertFormDataToCsv(int formId)
+        {
+            if (!await _context.Forms.AnyAsync(x => x.Id == formId))
+            {
+                return NotFound();
+            }
+            // Sample data for demonstration
+            List<List<FormElementValue>> data = new List<List<FormElementValue>>();
+            var formElements=await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
+            foreach (var item in formElements )
+            {
+                data.Add(await _context.Answers.Include(x=>x.Element).Where(x=>x.Element.Id==item.Id).ToListAsync());
+            }
+
+            // Convert data to JSON
+            var jsonData = JsonConvert.SerializeObject(data);
+
+            // Convert JSON to CSV
+            using (var memoryStream = new MemoryStream())
+            using (var streamWriter = new StreamWriter(memoryStream, Encoding.UTF8))
+            using (var csvWriter = new CsvWriter(streamWriter, new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)))
+            {
+                csvWriter.WriteRecords(JsonConvert.DeserializeObject<List<List<FormElementValue>>>(jsonData));
+                streamWriter.Flush();
+                return File(memoryStream.ToArray(), "text/csv", "data.csv");
+            }
+        }
         private bool FormExists(int id)
         {
             return _context.Forms.Any(f => f.Id == id);

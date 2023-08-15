@@ -6,5 +6,5 @@ public class UpdateFormElementValueModel
 {
     public int ElementId { get; set; }
     public string Value { get; set; }
-    public int AnsweredById { get; set; }
+    public string AnsweredBy { get; set; }
 }

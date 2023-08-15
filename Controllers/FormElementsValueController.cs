@@ -73,12 +73,26 @@ namespace FormGeneratorAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<FormElementValue>> PostFormElementsValue(List<UpdateFormElementValueModel> formElementsValues)
         {
+            foreach (var elementValue in formElementsValues)
+            {
+                if (!await _context.Users.AnyAsync(x => x.Username == elementValue.AnsweredBy))
+                {
+                    return NotFound("user not found");
+                }
+            }
+            foreach (var elementValue in formElementsValues)
+            {
+                if (!await _context.FormElements.AnyAsync(x => x.Id == elementValue.ElementId))
+                {
+                    return NotFound("element not found");
+                }
+            }
             List<FormElementValue> newFormElementsValues = new List<FormElementValue>();
             foreach (var formElementValue in formElementsValues)
             {
                 newFormElementsValues.Add(new FormElementValue()
                 {
-                    AnsweredBy = await _context.Users.FindAsync(formElementValue.AnsweredById),
+                    AnsweredBy = await _context.Users.Where(x => x.Username == formElementValue.AnsweredBy).FirstAsync(),
                     Element = await _context.FormElements.FindAsync(formElementValue.ElementId),
                     Value = formElementValue.Value,
                     AnsweredAt = DateTime.Now

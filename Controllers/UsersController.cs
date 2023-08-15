@@ -9,6 +9,7 @@ using FormGeneratorAPI.Authentication.Entities;
 using FormGeneratorAPI.Database;
 using FormGeneratorAPI.ViewModels;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authorization;
 
 namespace FormGeneratorAPI.Controllers;
 [Route("api/[controller]")]
@@ -18,7 +19,7 @@ public class UsersController : ControllerBase
     private readonly DatabaseContext _context;
     private readonly IConfiguration _configuration;
 
-    public UsersController(DatabaseContext context,IConfiguration configuration)
+    public UsersController(DatabaseContext context, IConfiguration configuration)
     {
         _context = context;
         _configuration = configuration;
@@ -69,7 +70,7 @@ public class UsersController : ControllerBase
         await _context.SaveChangesAsync();
         return Ok();
     }
-    [HttpGet("Login")]
+    [HttpPost("Login")]
     public async Task<IActionResult> Login(string username, string password)
     {
         if (!ModelState.IsValid)
@@ -105,7 +106,14 @@ public class UsersController : ControllerBase
 
 
     }
-    
+
+    [Authorize]
+    [HttpGet("TestLogin")]
+    public IActionResult TestLogin()
+    {
+        return Ok(User.Claims.Where(x => x.Type == ClaimTypes.Role).First().Value);
+    }
+
     private JwtToken Authenticate(User user)
     {
         // Else we generate JSON Web Token
@@ -118,7 +126,7 @@ public class UsersController : ControllerBase
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role),
             }),
-            Expires = DateTime.UtcNow.AddMinutes(30),
+            Expires = DateTime.UtcNow.AddDays(3),
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey),
                 SecurityAlgorithms.HmacSha256Signature)
         };
