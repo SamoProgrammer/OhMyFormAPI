@@ -44,7 +44,7 @@ namespace FormGeneratorAPI.Controllers
                     Title = form.Title
                 });
             }
-            return newForms;
+            return Ok(newForms);
         }
 
         // GET: api/Form/5
@@ -60,13 +60,13 @@ namespace FormGeneratorAPI.Controllers
                 return NotFound();
             }
 
-            return new FormViewModel()
+            return Ok(new FormViewModel()
             {
                 Id = form.Id,
                 AuthorId = form.Author.Id,
                 EndTime = form.EndTime,
                 Title = form.Title
-            };
+            });
         }
 
         // POST: api/Form
@@ -143,10 +143,10 @@ namespace FormGeneratorAPI.Controllers
             }
             // Sample data for demonstration
             List<List<FormElementValue>> data = new List<List<FormElementValue>>();
-            var formElements=await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
-            foreach (var item in formElements )
+            var formElements = await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
+            foreach (var item in formElements)
             {
-                data.Add(await _context.Answers.Include(x=>x.Element).Where(x=>x.Element.Id==item.Id).ToListAsync());
+                data.Add(await _context.Answers.Include(x => x.Element).Where(x => x.Element.Id == item.Id).ToListAsync());
             }
 
             // Convert data to JSON
@@ -161,6 +161,26 @@ namespace FormGeneratorAPI.Controllers
                 streamWriter.Flush();
                 return File(memoryStream.ToArray(), "text/csv", "data.csv");
             }
+        }
+        [HttpPost("IsUserAnswerdForm")]
+        public async Task<IActionResult> IsUserAnswerdForm(string username, int formId)
+        {
+            if (!await _context.Forms.AnyAsync(x => x.Id == formId))
+            {
+                return NotFound();
+            }
+            if (!await _context.Users.AnyAsync(x => x.Username == username))
+            {
+                return NotFound();
+            }
+            List<FormElement> formFormElements = await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
+            List<FormElementValue> formAnswers = new List<FormElementValue>();
+            foreach (var formElement in formFormElements)
+            {
+                formAnswers.AddRange(await _context.Answers.Include(x => x.Element).Include(x => x.AnsweredBy).Where(x => x.Element.Id == formElement.Id).ToListAsync());
+            }
+            bool isUserAnswerdForm = formAnswers.Any(x => x.AnsweredBy.Username==username);
+            return Ok(isUserAnswerdForm);
         }
         private bool FormExists(int id)
         {
