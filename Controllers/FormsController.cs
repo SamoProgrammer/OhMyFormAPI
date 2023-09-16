@@ -73,19 +73,19 @@ namespace FormGeneratorAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Form>> PostForm(AddFormModel form)
         {
-            if (!await _context.Users.AnyAsync(x => x.Id == form.AuthorId))
+            if (!await _context.Users.AnyAsync(x => x.Username == form.AuthorUsername))
             {
                 return BadRequest();
             }
             await _context.Forms.AddAsync(new Form()
             {
-                Author = await _context.Users.FindAsync(form.AuthorId),
+                Author = await _context.Users.Where(x => x.Username == form.AuthorUsername).FirstAsync(),
                 EndTime = form.EndTime,
                 Title = form.Title,
             });
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetForm), new { id = form.Id }, form);
+            return CreatedAtAction(nameof(GetForm), new { title = form.Title }, form);
         }
 
         // PUT: api/Form/5
@@ -183,7 +183,7 @@ namespace FormGeneratorAPI.Controllers
                 for (int i = 0; i <= currentUserAnswers.Count; i++)
                 {
                     result.AppendLine($"{currentUserAnswers[i].Element.Label},{currentUserAnswers[i].Value}");
-                
+
                 }
                 currentUserAnswers.Clear();
             }
