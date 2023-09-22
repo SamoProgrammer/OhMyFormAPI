@@ -85,7 +85,7 @@ namespace FormGeneratorAPI.Controllers
             });
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetForm), new { title = form.Title }, form);
+            return Ok( new { title = form.Title });
         }
 
         // PUT: api/Form/5
@@ -146,51 +146,22 @@ namespace FormGeneratorAPI.Controllers
             var formElements = await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
             foreach (var item in formElements)
             {
-                data.Add(await _context.Answers.Include(x => x.Element).Include(x => x.AnsweredBy).Where(x => x.Element.Id == item.Id).ToListAsync());
+                data.Add(await _context.Answers.Include(x => x.Element).Where(x => x.Element.Id == item.Id).ToListAsync());
             }
-            List<User> formUsers = new List<User>();
-            foreach (var formElementAnswers in data)
+
+            // Convert data to JSON
+            var jsonData = JsonConvert.SerializeObject(data);
+
+            // Convert JSON to CSV
+            using (var memoryStream = new MemoryStream())
+            using (var streamWriter = new StreamWriter(memoryStream, Encoding.UTF8))
+            using (var csvWriter = new CsvWriter(streamWriter, new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)))
             {
-                foreach (var item in formElementAnswers)
-                {
-                    if (!formUsers.Any(x => x.Id == item.AnsweredBy.Id))
-                    {
-                        formUsers.Add(item.AnsweredBy);
-                    }
-                }
+                csvWriter.WriteRecords(JsonConvert.DeserializeObject<List<List<FormElementValue>>>(jsonData));
+                streamWriter.Flush();
+                return File(memoryStream.ToArray(), "text/csv", "data.csv");
             }
-
-            var csv = ConvertToCsv(data, formUsers);
-
-            return File(Encoding.UTF8.GetBytes(csv), "text/csv", "data.csv");
-
         }
-
-        private string ConvertToCsv(List<List<FormElementValue>> data, List<User> formUsers)
-        {
-            var result = new StringBuilder();
-            List<FormElementValue> currentUserAnswers = new List<FormElementValue>();
-            foreach (var user in formUsers)
-            {
-                result.AppendLine(user.Username);
-                foreach (var item in data)
-                {
-                    if (item.Any(x => x.AnsweredBy.Id == user.Id))
-                    {
-                        currentUserAnswers.Add(item.Where(x => x.AnsweredBy.Id == user.Id).First());
-                    }
-                }
-                for (int i = 0; i <= currentUserAnswers.Count; i++)
-                {
-                    result.AppendLine($"{currentUserAnswers[i].Element.Label},{currentUserAnswers[i].Value}");
-
-                }
-                currentUserAnswers.Clear();
-            }
-
-            return result.ToString();
-        }
-
         [HttpPost("IsUserAnswerdForm")]
         public async Task<IActionResult> IsUserAnswerdForm(string username, int formId)
         {
