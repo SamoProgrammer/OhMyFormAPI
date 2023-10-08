@@ -77,11 +77,19 @@ namespace FormGeneratorAPI.Controllers
             {
                 return BadRequest();
             }
-            await _context.Forms.AddAsync(new Form()
+            var newForm = new Form()
             {
                 Author = await _context.Users.Where(x => x.Username == form.AuthorUsername).FirstAsync(),
                 EndTime = form.EndTime,
                 Title = form.Title,
+            };
+            await _context.Forms.AddAsync(newForm);
+
+            await _context.FormElements.AddAsync(new FormElement()
+            {
+                Form = newForm,
+                Type = FormElementType.Title,
+                Label = newForm.Title
             });
             await _context.SaveChangesAsync();
 
@@ -154,7 +162,7 @@ namespace FormGeneratorAPI.Controllers
             {
                 sortedData.Add(item.OrderBy(x => x.AnsweredBy.Id).ToList());
             }
-            var csvOutput=new StringBuilder();
+            var csvOutput = new StringBuilder();
             foreach (var item in sortedData)
             {
                 csvOutput.AppendLine(item.First().Element.Label);
@@ -162,22 +170,18 @@ namespace FormGeneratorAPI.Controllers
                 {
                     csvOutput.AppendLine($"{element.AnsweredBy.Username},{element.Value}");
                 }
-                csvOutput.AppendLine("--------------------------------------------");
             }
-            return Ok(csvOutput);
-            // // Convert data to JSON
-            // var jsonData = JsonConvert.SerializeObject(data);
+            // Create a byte array from the CSV content
+            var csvBytes = Encoding.UTF8.GetBytes(csvOutput.ToString());
 
-            // // Convert JSON to CSV
-            // using (var memoryStream = new MemoryStream())
-            // using (var streamWriter = new StreamWriter(memoryStream, Encoding.UTF8))
-            // using (var csvWriter = new CsvWriter(streamWriter, new CsvHelper.Configuration.CsvConfiguration(CultureInfo.InvariantCulture)))
-            // {
-            //     csvWriter.WriteRecords(JsonConvert.DeserializeObject<List<List<FormElementValue>>>(jsonData));
-            //     streamWriter.Flush();
-            //     return File(memoryStream.ToArray(), "text/csv", "data.csv");
-            // }
+            // Set the response headers to specify the content type and file name
+            var csvFileName = "FormData.csv";
+            HttpContext.Response.Headers.Add("Content-Disposition", $"attachment; filename={csvFileName}");
+
+            // Return the CSV file
+            return File(csvBytes, "text/csv");
         }
+
         [HttpPost("IsUserAnswerdForm")]
         public async Task<IActionResult> IsUserAnswerdForm(string username, int formId)
         {
