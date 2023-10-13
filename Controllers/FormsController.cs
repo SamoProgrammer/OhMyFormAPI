@@ -152,6 +152,7 @@ namespace FormGeneratorAPI.Controllers
             // Sample data for demonstration
             List<List<FormElementValue>> data = new List<List<FormElementValue>>();
             var formElements = await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
+            formElements.Remove(formElements.First());
             foreach (var item in formElements)
             {
                 data.Add(await _context.Answers.Include(x => x.Element).Include(x => x.AnsweredBy).Where(x => x.Element.Id == item.Id).ToListAsync());
@@ -162,14 +163,22 @@ namespace FormGeneratorAPI.Controllers
             {
                 sortedData.Add(item.OrderBy(x => x.AnsweredBy.Id).ToList());
             }
-            var csvOutput = new StringBuilder();
-            foreach (var item in sortedData)
+
+            var usersAnswerd = new List<User>();
+            foreach (var item in sortedData.First())
             {
-                csvOutput.AppendLine(item.First().Element.Label);
-                foreach (var element in item)
+                usersAnswerd.Add(item.AnsweredBy);
+            }
+            var csvOutput = new StringBuilder();
+            foreach (var item in usersAnswerd)
+            {
+                csvOutput.AppendLine(item.Username);
+                foreach (var elements in sortedData)
                 {
-                    csvOutput.AppendLine($"{element.AnsweredBy.Username},{element.Value}");
+                    var usersAnswer=elements.Where(x => x.AnsweredBy.Username == item.Username).First();
+                    csvOutput.AppendLine($"{usersAnswer.Element.Label},{usersAnswer.Value}");
                 }
+                csvOutput.AppendLine();
             }
             // Create a byte array from the CSV content
             var csvBytes = Encoding.UTF8.GetBytes(csvOutput.ToString());
@@ -179,7 +188,7 @@ namespace FormGeneratorAPI.Controllers
             HttpContext.Response.Headers.Add("Content-Disposition", $"attachment; filename={csvFileName}");
 
             // Return the CSV file
-            return File(csvBytes, "text/csv");
+            return File(csvBytes, "text/csv; charset=UTF-8");
         }
 
         [HttpPost("IsUserAnswerdForm")]
@@ -192,6 +201,10 @@ namespace FormGeneratorAPI.Controllers
             if (!await _context.Users.AnyAsync(x => x.Username == username))
             {
                 return NotFound();
+            }
+            if (_context.Forms.Where(x => x.Id == formId).First().EndTime < DateTime.Now)
+            {
+                return Ok("time");
             }
             List<FormElement> formFormElements = await _context.FormElements.Include(x => x.Form).Where(x => x.Form.Id == formId).ToListAsync();
             List<FormElementValue> formAnswers = new List<FormElementValue>();
